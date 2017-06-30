@@ -1,0 +1,147 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Socket.IO chat</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { font: 13px Helvetica, Arial; }
+      #messagesSection form { background: #000; padding: 3px; position: fixed; bottom: 0; width: 80%; }
+      #messagesSection form input { border: 0; padding: 10px; width: 90%; margin-right: .5%; }
+      #messagesSection form button { width: 9%; background: rgb(130, 224, 255); border: none; padding: 10px; }
+      #messages { list-style-type: none; margin: 0; padding: 0; }
+      #messages li { padding: 5px 10px; }
+      #messages li:nth-child(odd) { background: #eee; }
+      #messagesSection { display: none; width: 80%; float: left; height: 93vh; overflow-y: scroll;}
+      .wrapper { display: none; width: 15%; height: 50%; float: right; margin-right: 10px; }
+      #userList { height: 30vh; overflow-y: scroll; margin-bottom: 20px;}
+      #roomList { height: 30vh; overflow-y: scroll; margin-bottom: 10px; }
+      #roomSection { display: none; }
+    </style>
+  </head>
+  <body>
+    <div id="inputNameSection">
+      <p>Insert Nickname</p>
+      <br>
+      <form id="nameForm" action="">
+        <input id="name" autocomplete="off" />
+        <br>
+        <br>
+        <button>Send</button>
+      </form>
+    </div>
+
+    <div id="roomSection">
+      <div id="roomList">
+        <h2 class="marginUser">Room List</h2>
+        <ul id="rooms"></ul>
+      </div>
+      <button id="createRoom" type="button">Create Room</button>
+    </div>
+
+    <div id="messagesSection">
+      <h1 id="roomName">Room: Home</h1>
+
+      <ul id="messages"></ul>
+      <form id="messageForm" action="">
+        <input id="m" autocomplete="off" /><button>Send</button>
+      </form>
+    </div>
+
+    <div class="wrapper">
+      <div id="userList">
+        <h2 class="marginUser">Current Users</h2>
+        <ul id="users"></ul>
+      </div>
+    </div>
+
+    <script src="https://cdn.socket.io/socket.io-1.2.0.js"></script>
+    <script src="http://code.jquery.com/jquery-1.11.1.js"></script>
+    <script>
+      var socket = io();
+
+      socket.on('connect', function(){
+        $('#inputNameSection').show();
+        $('#roomSection').hide();
+        $('#messagesSection').hide();
+        $('.wrapper').hide();
+
+        socket.emit('roomList');
+      });
+
+      socket.on('oldMessages', function(msg){
+        var oldMessages = "";
+        for(i=0; i < msg.length; i++){
+          oldMessages += msg[i];
+        }
+        $('#messages').append(oldMessages);
+      });
+
+      $('#nameForm').submit(function(){
+        socket.emit('new name', $('#name').val());
+        $('#name').val('');
+        return false;
+      });
+
+      socket.on('username', function(name){
+        $('#inputNameSection').hide();
+        $('#roomSection').show();
+      });
+
+      socket.on('usernameFail', function(name){
+        $('#userFail').remove();
+        $('#inputNameSection').append($('<p id="userFail">').text(name + ' already in use.'));
+      });
+      
+      socket.on('userList', function(names){
+        var userList = "";
+        for(i=0; i < names.length; i++){
+          userList += '<li><b>' + names[i] + '</b></li>';
+        }
+        $('#users').html(userList);
+      });
+
+      $('#messageForm').submit(function(){
+        socket.emit('chat message', $('#m').val());
+        $('#m').val('');
+        return false;
+      });
+      socket.on('chat message', function(msg){
+        $('#messages').append("<li><p><b>" + msg.time + " " + msg.username + ":</b> " + msg.msg + "</p></li>");
+        
+        $("#messagesSection").scrollTop($("#messagesSection")[0].scrollHeight);
+      });
+      socket.on('chat message fail', function(msg){
+        $('#messages').append("<li><p><b>ERROR!!! Please refresh the page</b></p></li>");
+      });
+
+      socket.on('roomList', function(rooms){
+        var roomList = "";
+        for(i=0; i < rooms.length; i++){
+          roomList += '<li><a href="#" onclick="joinRoom(\''+ rooms[i] +'\')"><b>' + rooms[i] + '</b></a></li>';
+        }
+        $('#rooms').html(roomList);
+      });
+
+      function joinRoom(room){
+        socket.emit('joinRoom', room);
+      }
+
+      $('#createRoom').click(function(){
+        socket.emit('new room', prompt("Room name"));
+      });
+
+      socket.on('joinedRoom', function(){
+        $('#roomSection').hide();
+        $('#messagesSection').show();
+        $('.wrapper').show();
+
+        socket.emit('oldMessages');
+      });
+
+      socket.on('updateChannelName', function(name){
+        $('#roomName').html("Room: " + name);
+      });
+    </script>
+
+  </body>
+</html> 
